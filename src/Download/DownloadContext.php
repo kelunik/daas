@@ -36,10 +36,10 @@ class DownloadContext {
         return $this->meta;
     }
 
-    public function addDownload(Package $package, string $version, bool $cached) {
+    public function addDownload(Package $package, string $version, string $source) {
         $this->downloads[$package->getFullName()] = [
             "version" => $version,
-            "cached" => $cached,
+            "source" => $source,
         ];
     }
 

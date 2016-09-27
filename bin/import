@@ -114,7 +114,7 @@ Amp\run(function () use ($argv) {
             $logger->info("Installed '{package}' @ '{version}' from '{source}'", [
                 "package" => $download,
                 "version" => $downloadInfo["version"],
-                "source" => $downloadInfo["cached"] ? "cache" : "source",
+                "source" => $downloadInfo["source"],
             ]);
         }
     } catch (Throwable $e) {

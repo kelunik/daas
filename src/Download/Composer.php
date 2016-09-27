@@ -69,14 +69,19 @@ class Composer {
                     foreach ($matches as $match) {
                         $package = Package::fromString($match[1][0]);
                         $version = normalizeVersionString($match[2][0]);
+                        $source = trim($match[3][0]);
 
-                        switch (trim($match[3][0])) {
-                            case "Downloading":
-                                $context->addDownload($package, $version, false);
+                        switch (true) {
+                            case $source === "Downloading":
+                                $context->addDownload($package, $version, "dist");
                                 break;
 
-                            case "Loading from cache":
-                                $context->addDownload($package, $version, true);
+                            case $source === "Loading from cache":
+                                $context->addDownload($package, $version, "cache");
+                                break;
+
+                            case preg_match("~^Cloning ~", $source) === 1:
+                                $context->addDownload($package, $version, "clone");
                                 break;
 
                             default:
