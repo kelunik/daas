@@ -1,0 +1,16 @@
+<select name="version" id="version-switch">
+    {% for v in versions %}
+        {% if v.text == version %}
+            <option value="{{ v.href|e('html_attr') }}" selected="selected">{{ v.text }}</option>
+        {% else %}
+            <option value="{{ v.href|e('html_attr') }}">{{ v.text }}</option>
+        {% endif %}
+    {% endfor %}
+</select>
+
+<script>
+    var versionSwitch = document.getElementById("version-switch");
+    versionSwitch.addEventListener("change", function() {
+        window.location = versionSwitch.value;
+    });
+</script>

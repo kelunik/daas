@@ -1,0 +1,15 @@
+{% extends "layout/reference.twig" %}
+
+{% block title %}{{ data.vendor }} / {{ data.package }}{% endblock %}
+
+{% block content %}
+    <h1>Classes of {{ data.vendor }} / {{ data.package }}</h1>
+
+    {% include "helpers/version-switch.twig" with {'version': data.version, 'versions': data.versions} only %}
+
+    <ul>
+        {% for class in data.classes %}
+            <li>{{ (class.namespace ~ class.name)|link }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

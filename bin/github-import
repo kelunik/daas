@@ -1,0 +1,130 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Imports a GitHub repository with all versions.
+ *
+ * Output protocol: Line separated event stream. First character indicates type.
+ *
+ *     + Version complete
+ *
+ * This simple protocol keeps readability of the current progress while allowing programmatic access.
+ */
+
+use Amp\Artax\Client;
+use Amp\Artax\Cookie\NullCookieJar;
+use Amp\Artax\Request;
+use Amp\Artax\Response;
+use Amp\Mysql\Pool;
+use Amp\Mysql\ResultSet;
+use Amp\Process;
+use Dotenv\Dotenv;
+use Kelunik\DaaS\Package;
+use function Amp\any;
+use function Amp\resolve;
+use function Kelunik\DaaS\buildUri;
+use function Kelunik\DaaS\databaseUriToConnStr;
+use function Kelunik\DaaS\isValidVersionString;
+
+require __DIR__ . "/../vendor/autoload.php";
+
+$dotenv = new Dotenv(__DIR__ . "/..");
+$dotenv->load();
+$dotenv->required("APP_DATABASE");
+$dotenv->required("APP_GITHUB_CLIENT_ID");
+$dotenv->required("APP_GITHUB_CLIENT_SECRET");
+
+Amp\run(function () use ($argv) {
+    if (count($argv) !== 3) {
+        print "Usage: github-import [owner] [repository]" . PHP_EOL;
+        exit(1);
+    }
+
+    list(, $owner, $repository) = $argv;
+
+    $mysql = new Pool(databaseUriToConnStr(getenv("APP_DATABASE")));
+
+    $http = new Client(new NullCookieJar);
+    $http->setOption(Client::OP_DEFAULT_USER_AGENT, "kelunik/docs");
+
+    /** @var Response $response */
+    $response = yield $http->request((new Request)
+        ->setUri(buildUri(
+            "https://api.github.com/repos/%s/%s/tags?client_id=%s&client_secret=%s",
+            $owner, $repository, getenv("APP_GITHUB_CLIENT_ID"), getenv("APP_GITHUB_CLIENT_SECRET")
+        ))
+    );
+
+    if ($response->getStatus() !== 200) {
+        print "Could not fetch tags ..." . PHP_EOL;
+        exit(2);
+    }
+
+    $tags = json_decode($response->getBody(), true);
+
+    /** @var Response $response */
+    $response = yield $http->request(buildUri(
+        "https://api.github.com/repos/%s/%s/contents/composer.json?client_id=%s&client_secret=%s",
+        $owner, $repository, getenv("APP_GITHUB_CLIENT_ID"), getenv("APP_GITHUB_CLIENT_SECRET")
+    ));
+
+    if ($response->getStatus() !== 200) {
+        print "Error fetching composer.json" . PHP_EOL;
+        return;
+    }
+
+    $composerContent = json_decode($response->getBody(), true)["content"];
+    $composer = json_decode(base64_decode($composerContent), true);
+    $package = Package::fromString($composer["name"]);
+
+    $importTag = function ($tag) use ($owner, $repository, $package, $http, $mysql) {
+        if (!isValidVersionString($tag["name"])) {
+            print "Info: Non-version tag found, skipping {$tag["name"]}" . PHP_EOL;
+            return;
+        }
+
+        $version = $tag["name"];
+
+        /** @var ResultSet $result */
+        $result = yield $mysql->prepare("SELECT 1 FROM versions WHERE vendor = ? && name = ? && tag = ?", [
+            $package->getVendor(),
+            $package->getPackageName(),
+            $version,
+        ]);
+
+        if (yield $result->rowCount()) {
+            print "Skipping {$version}, it already exists" . PHP_EOL;
+            return;
+        }
+
+        $process = new Process([
+            __DIR__ . "/import",
+            $package->getVendor(),
+            $package->getPackageName(),
+            $version,
+        ]);
+
+        $result = yield $process->exec(Process::BUFFER_STDOUT);
+
+        if ($result->exit !== 0) {
+            print "Warning: {$version} could not be downloaded, skipping." . PHP_EOL;
+            print $result->stdout . PHP_EOL . PHP_EOL;
+            return;
+        }
+
+        print $version . " done" . PHP_EOL;
+    };
+
+    foreach (array_chunk($tags, 5) as $tagChunk) {
+        $promises = [];
+
+        foreach ($tagChunk as $tag) {
+            $promises[] = resolve($importTag($tag));
+        }
+
+        yield any($promises);
+    }
+
+    // Stop because of only Artax keeps it running for some more seconds.
+    \Amp\stop();
+});

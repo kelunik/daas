@@ -1,0 +1,153 @@
+{% extends "layout/reference.twig" %}
+
+{% block title %}{{ data.vendor }} / {{ data.package }}{% endblock %}
+
+{% block content %}
+    <h1>
+        {{ data.class.namespace }}{{ data.class.name }}
+
+        <span clasS="signature">
+            {{ data.class.classType }} {{ data.class.name }}
+
+            {% if data.class.parents %}
+                extends {{ data.class.parents|join(', ') }}
+            {% endif %}
+
+            {% if data.class.interfaces %}
+                implements {{ data.class.interfaces|join(', ') }}
+            {% endif %}
+        </span>
+    </h1>
+
+    {% include "helpers/version-switch.twig" with {'version': data.version, 'versions': data.versions} only %}
+
+    {{ data.class.summary|markdown }}
+    {{ data.class.description|markdown }}
+
+    <h2>Summary</h2>
+
+    <h3>Properties</h3>
+
+    <ul>
+        {% for property in data.class.properties if not ((property.visibility == "private" and data.class.classType != "trait") or property.internal) %}
+            <li>
+                <a href="#property_{{ property.name }}">${{ property.name }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <h3>Methods</h3>
+
+    <ul>
+        {% for method in data.class.methods if not ((method.visibility == "private" and data.class.classType != "trait") or method.internal) %}
+            <li>
+                <a href="#method_{{ method.name }}">{{ method.name }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+
+    {% if data.class.properties %}
+        <h2>Properties</h2>
+
+        <dl>
+            {% for property in data.class.properties if not ((property.visibility == "private" and data.class.classType != "trait") or property.internal) %}
+                <dt id="property_{{ property.name }}">
+                    ${{ property.name }}
+
+                    <span class="signature">
+                        —
+
+                        {{ property.visibility }} {{ property.type|link }} ${{ property.name }}
+
+                        {% if property.defaultValue is not null %}
+                            = {{ property.defaultValue }}
+                        {% endif %}
+                    </span>
+                </dt>
+
+                <dd>
+                    {% if property.summary %}
+                        {{ property.summary|markdown }}
+                        {{ property.description|markdown }}
+                    {% else %}
+                        <i>No documentation.</i>
+                    {% endif %}
+                </dd>
+            {% endfor %}
+        </dl>
+    {% endif %}
+
+    {% if data.class.methods %}
+        <h2>Methods</h2>
+
+        <dl>
+            {% for method in data.class.methods if not ((method.visibility == "private" and data.class.classType != "trait") or method.internal) %}
+                <dt id="method_{{ method.name }}">
+                    {{ method.name }}
+                    <span class="signature">
+                        —
+
+                        {{ method.visibility }}
+                        {% if method.abstract %}abstract{% endif %}
+                        {% if method.final %}final{% endif %}
+                        function {{ method|sourcelink(method.name) -}}
+                        (
+                        {%- for parameter in method.parameters -%}
+                            {%- if parameter.type %}{{ parameter.type|link }} {% endif %}
+                            {%- if parameter.byRef %}&{% endif %}
+                            {%- if parameter.variadic %}...{% endif -%}
+                            ${{ parameter.name }}
+                            {%- if parameter.defaultValue is not null %} = {{ parameter.defaultValue }}{% endif %}
+
+                            {%- if not loop.last %}, {% endif -%}
+                        {%- endfor -%}
+                        )
+                        {%- if method.returnType -%}
+                            : {{ method.returnType|link }}
+                        {% endif %}
+                    </span>
+                </dt>
+                <dd>
+                    {% if method.summary %}
+                        {{ method.summary|markdown }}
+                        {{ method.description|markdown }}
+                    {% else %}
+                        <i>No documentation.</i>
+                    {% endif %}
+                </dd>
+                {% if method.parameters %}
+                    <dd>
+                        <table class="parameters">
+                            <tr>
+                                <th>Type</th>
+                                <th>Parameter</th>
+                                <th>Description</th>
+                                <th>Default&nbsp;Value</th>
+                            </tr>
+                            {%- for parameter in method.parameters -%}
+                                <tr>
+                                    <td>
+                                        {%- if parameter.type %}{{ parameter.type|link }}{% else %}mixed{% endif %}
+                                    </td>
+                                    <td>
+                                        {%- if parameter.byRef %}&{% endif %}
+                                        {%- if parameter.variadic %}...{% endif %}
+                                        ${{ parameter.name }}
+                                    </td>
+                                    <td>
+                                        {% if parameter.description %}{{ parameter.description }}{% else %}<i>No
+                                            documentation.</i>{% endif %}
+                                    </td>
+                                    <td>
+                                        {%- if parameter.defaultValue %}{{ parameter.defaultValue }}{% else %}
+                                            <i>none</i>{% endif %}
+                                    </td>
+                                </tr>
+                            {%- endfor -%}
+                        </table>
+                    </dd>
+                {% endif %}
+            {% endfor %}
+        </dl>
+    {% endif %}
+{% endblock %}

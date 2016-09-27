@@ -1,0 +1,254 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Downloads a Packagist package and installs all its dependencies.
+ *
+ * Output protocol: Line separated event stream. First character indicates type.
+ *
+ *     + Package download finished, can be used to track the progress
+ *     = Final destination
+ *
+ * This simple protocol keeps readability of the current progress while allowing programmatic access to the destination
+ * and installed packages.
+ */
+
+use Amp\Artax\Client;
+use Amp\Artax\Cookie\NullCookieJar;
+use Amp\Artax\Request;
+use Amp\Artax\Response;
+use Amp\Mysql\Pool;
+use Dotenv\Dotenv;
+use Kelunik\DaaS\Download\Composer;
+use Kelunik\DaaS\Download\DownloadContext;
+use Kelunik\DaaS\Extraction\ClassExtractor;
+use Kelunik\DaaS\Extraction\FunctionExtractor;
+use Kelunik\DaaS\Extraction\Resolver\InterfaceResolver;
+use Kelunik\DaaS\Extraction\Resolver\NameResolver;
+use Kelunik\DaaS\Extraction\Resolver\ParentResolver;
+use Kelunik\DaaS\Extraction\Resolver\TraitResolver;
+use Kelunik\DaaS\Extraction\Runner;
+use Kelunik\DaaS\Extraction\Storage\ClassStorage;
+use Kelunik\DaaS\Extraction\Storage\FileStorage;
+use Kelunik\DaaS\Extraction\Storage\FunctionStorage;
+use Kelunik\DaaS\Package;
+use Kelunik\DaaS\Persistence\ClassRepository;
+use Kelunik\DaaS\Persistence\ElasticClient;
+use Kelunik\DaaS\Persistence\FunctionRepository;
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
+use Monolog\Processor\PsrLogMessageProcessor;
+use phpDocumentor\Reflection\DocBlockFactory;
+use phpDocumentor\Reflection\TypeResolver;
+use PhpParser\NodeTraverser;
+use PhpParser\ParserFactory;
+use Psr\Log\NullLogger;
+use Symfony\Component\Finder\Finder;
+use const Kelunik\DaaS\ROOT;
+use function Kelunik\DaaS\databaseUriToConnStr;
+use function Kelunik\DaaS\getVersionId;
+use function Kelunik\DaaS\normalizeVersionString;
+use function Kelunik\DaaS\rrmdir;
+
+// TODO: Support @deprecated
+// TODO: Support @example
+// TODO: Support @api
+// TODO: Record license information when inheriting docs from other packages
+
+require __DIR__ . "/../vendor/autoload.php";
+
+const EXIT_OK = 0;
+const EXIT_USAGE = 1;
+const EXIT_INVALID_PACKAGE = 2;
+const EXIT_INVALID_CONFIGURATION = 3;
+const EXIT_DOWNLOAD_FAILURE = 4;
+const EXIT_INDEX_FAILURE = 5;
+
+Amp\run(function () use ($argv) {
+    if (count($argv) !== 4) {
+        print "Usage: import [vendor] [packageName] [version]" . PHP_EOL;
+        exit(EXIT_USAGE);
+    }
+
+    list(, $vendor, $packageName, $version) = $argv;
+    $normalizedVersion = normalizeVersionString($version);
+
+    if (!Package::isValid($vendor . "/" . $packageName)) {
+        print "Invalid package name: '" . $vendor . "/" . $packageName . "'";
+        exit(EXIT_INVALID_PACKAGE);
+    }
+
+    $logger = new Logger("import");
+    $logger->pushHandler(new StreamHandler("php://stderr"));
+    $logger->pushProcessor(new PsrLogMessageProcessor);
+
+    $logger->debug("Loading configuration from Dotenv.");
+
+    try {
+        $dotenv = new Dotenv(__DIR__ . "/..");
+        $dotenv->load();
+        $dotenv->required("APP_DATABASE");
+        $dotenv->required("APP_ELASTICSEARCH");
+    } catch (Throwable $e) {
+        $logger->emergency("Invalid configuration: " . $e);
+        exit(EXIT_INVALID_CONFIGURATION);
+    }
+
+    $baseDir = ROOT . "/out";
+    @mkdir($baseDir, 0755, true);
+
+    $composer = new Composer($baseDir);
+
+    try {
+        $package = new Package($vendor, $packageName);
+        /** @var DownloadContext $context */
+        $context = yield $composer->fetch($package, $normalizedVersion);
+
+        register_shutdown_function(function () use ($context) {
+            if (file_exists($context->getDestination())) {
+                rrmdir($context->getDestination());
+            }
+        });
+
+        foreach ($context->getDownloads() as $download => $downloadInfo) {
+            $logger->info("Installed '{package}' @ '{version}' from '{source}'", [
+                "package" => $download,
+                "version" => $downloadInfo["version"],
+                "source" => $downloadInfo["cached"] ? "cache" : "source",
+            ]);
+        }
+    } catch (Throwable $e) {
+        print (string) $e;
+        exit(EXIT_DOWNLOAD_FAILURE);
+    }
+
+    $httpClient = new Client(new NullCookieJar);
+    $httpClient->setOption(Client::OP_DEFAULT_USER_AGENT, "kelunik/docs");
+
+    $packageMeta = $context->getMeta();
+
+    $mysql = new Pool(databaseUriToConnStr(getenv("APP_DATABASE")));
+
+    $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP7);
+
+    $finder = (new Finder)->files()
+        ->in($context->getDestination() . "/source")
+        ->name("*.php");
+
+    $logger->info("Parsing {files} files.", [
+        "files" => $finder->count(),
+    ]);
+
+    $classStorage = new ClassStorage(new FileStorage($context->getDestination() . "/classes"));
+    $functionStorage = new FunctionStorage(new FileStorage($context->getDestination() . "/functions"));
+
+    $docBlockFactory = DocBlockFactory::createInstance();
+    $nodeTraverser = new NodeTraverser;
+    $nameResolver = new NameResolver;
+    $classExtractor = new ClassExtractor($docBlockFactory, $nameResolver);
+    $functionExtractor = new FunctionExtractor($docBlockFactory, $nameResolver);
+
+    $logger->debug("Starting to parse files.");
+
+    $runner = new Runner($finder, $classStorage, $functionStorage, $classExtractor, $functionExtractor, $nameResolver, new TypeResolver, $parser, $nodeTraverser, $logger);
+    $result = $runner->run();
+
+    $logger->debug("Filling in package information.");
+
+    foreach ($result->getClassList() as $class) {
+        $classDoc = $classStorage->load($class);
+        $classDoc->setPackageVendor($package->getVendor());
+        $classDoc->setPackageName($package->getPackageName());
+        $classDoc->setPackageVersion($normalizedVersion);
+        $classStorage->save($classDoc);
+    }
+
+    foreach ($result->getFunctionList() as $function) {
+        $functionDoc = $functionStorage->load($function);
+        $functionDoc->setPackageVendor($package->getVendor());
+        $functionDoc->setPackageName($package->getPackageName());
+        $functionDoc->setPackageVersion($normalizedVersion);
+        $functionStorage->save($functionDoc);
+    }
+
+    // Resolve inheritance
+
+    $logger->debug("Resolving inheritance.");
+
+    $traitResolver = new TraitResolver(new NullLogger, $classStorage);
+
+    foreach ($result->getClassList() as $class) {
+        $traitResolver->resolve($class);
+    }
+
+    $parentResolver = new ParentResolver(new NullLogger, $classStorage);
+
+    foreach ($result->getClassList() as $class) {
+        $parentResolver->resolve($class);
+    }
+
+    $interfaceResolver = new InterfaceResolver(new NullLogger, $classStorage);
+
+    foreach ($result->getClassList() as $class) {
+        $interfaceResolver->resolve($class);
+    }
+
+    $elasticClient = new ElasticClient($httpClient, getenv("APP_ELASTICSEARCH"));
+    $classRepository = new ClassRepository($elasticClient);
+    $functionRepository = new FunctionRepository($elasticClient);
+
+    $logger->debug("Starting to insert into persistence.");
+
+    /** @var Response $response */
+    $response = yield $httpClient->request(
+        (new Request)
+            ->setUri(getenv("APP_ELASTICSEARCH") . "/reference")
+            ->setMethod("HEAD")
+    );
+
+    if ($response->getStatus() === 400) {
+        $logger->info("Index 'reference' does not exist, creating it.");
+
+        /** @var Response $response */
+        $response = yield $httpClient->request(
+            (new Request)
+                ->setUri("")
+                ->setMethod("PUT")
+                ->setBody(file_get_contents(__DIR__ . "/../res/elasticsearch/index/reference.json"))
+        );
+
+        if ($response->getStatus() !== 201) {
+            throw new \Exception("Index could not be created.");
+        }
+    }
+
+    yield $mysql->prepare("REPLACE INTO packages (vendor, name, platform, href) VALUES (?, ?, ?, ?)", [
+        $package->getVendor(), $package->getPackageName(), "github", $packageMeta["package"]["repository"],
+    ]);
+
+    yield $mysql->prepare("REPLACE INTO versions (vendor, name, version, tag) VALUES (?, ?, ?, ?)", [
+        $package->getVendor(), $package->getPackageName(), getVersionId($normalizedVersion), $version,
+    ]);
+
+    foreach ($result->getClassList() as $class) {
+        $classDoc = $classStorage->load($class);
+        $new = yield $classRepository->put($package, $normalizedVersion, $classDoc);
+
+        $logger->info("Adding class '{class}': " . ($new ? "new" : "already exists"), [
+            "class" => $classDoc->namespace . $classDoc->name,
+        ]);
+    }
+
+    foreach ($result->getFunctionList() as $function) {
+        $functionDoc = $functionStorage->load($function);
+        $new = yield $functionRepository->put($package, $normalizedVersion, $functionDoc);
+
+        $logger->info("Adding function '{function}': " . ($new ? "new" : "already exists"), [
+            "function" => $functionDoc->namespace . $functionDoc->name,
+        ]);
+    }
+
+    // Stop, because Artax keeps it running for some seconds otherwise,
+    // see https://github.com/amphp/artax/issues/98
+    \Amp\stop();
+});

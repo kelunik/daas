@@ -1,0 +1,69 @@
+{% extends "layout/reference.twig" %}
+
+{% block title %}{{ data.vendor }} / {{ data.package }}{% endblock %}
+
+{% block content %}
+    <h1>
+        {{ data.function.namespace }}{{ data.function.name }}
+    </h1>
+
+    {% include "helpers/version-switch.twig" with {'version': data.version, 'versions': data.versions} only %}
+
+    <span class="signature">
+        function {{ data.function|sourcelink(data.function.name) -}}
+        (
+        {%- for parameter in data.function.parameters -%}
+            {%- if parameter.type %}{{ parameter.type|link }} {% endif %}
+            {%- if parameter.byRef %}&{% endif %}
+            {%- if parameter.variadic %}...{% endif -%}
+            ${{ parameter.name }}
+            {%- if parameter.defaultValue is not null %} = {{ parameter.defaultValue }}{% endif %}
+
+            {%- if not loop.last %}, {% endif -%}
+        {%- endfor -%}
+        )
+        {%- if data.function.returnType -%}
+            : {{ data.function.returnType|link }}
+        {% endif %}
+    </span>
+
+    {% if data.function.summary %}
+        {{ data.function.summary|markdown }}
+        {{ data.function.description|markdown }}
+    {% else %}
+        <i>No documentation.</i>
+    {% endif %}
+
+    {% if data.function.parameters %}
+        <dd>
+            <table class="parameters">
+                <tr>
+                    <th>Type</th>
+                    <th>Parameter</th>
+                    <th>Description</th>
+                    <th>Default&nbsp;Value</th>
+                </tr>
+                {%- for parameter in data.function.parameters -%}
+                    <tr>
+                        <td>
+                            {%- if parameter.type %}{{ parameter.type|link }}{% else %}mixed{% endif %}
+                        </td>
+                        <td>
+                            {%- if parameter.byRef %}&{% endif %}
+                            {%- if parameter.variadic %}...{% endif %}
+                            ${{ parameter.name }}
+                        </td>
+                        <td>
+                            {% if parameter.description %}{{ parameter.description }}{% else %}<i>No
+                                documentation.</i>{% endif %}
+                        </td>
+                        <td>
+                            {%- if parameter.defaultValue %}{{ parameter.defaultValue }}{% else %}
+                                <i>none</i>{% endif %}
+                        </td>
+                    </tr>
+                {%- endfor -%}
+            </table>
+        </dd>
+    {% endif %}
+{% endblock %}

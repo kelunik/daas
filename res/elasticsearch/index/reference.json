@@ -1,0 +1,265 @@
+{
+    "settings": {
+        "index": {
+            "number_of_shards": 5,
+            "number_of_replicas": 0
+        },
+        "analysis": {
+            "analyzer": {
+                "analyzer_keyword": {
+                    "tokenizer": "keyword",
+                    "filter": "lowercase"
+                }
+            }
+        }
+    },
+    "mappings": {
+        "class": {
+            "_all": {
+                "enabled": false
+            },
+            "properties": {
+                "packageVendor": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "packageName": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "packageVersion": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "classType": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "parents": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "interfaces": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "traits": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "name": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "namespace": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "startLine": {
+                    "type": "integer"
+                },
+                "endLine": {
+                    "type": "integer"
+                },
+                "properties": {
+                    "type": "nested",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "file": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "startLine": {
+                            "type": "integer"
+                        },
+                        "endLine": {
+                            "type": "integer"
+                        },
+                        "internal": {
+                            "type": "boolean"
+                        },
+                        "summary": {
+                            "type": "string"
+                        },
+                        "definingClass": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "visibility": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "static": {
+                            "type": "boolean"
+                        },
+                        "type": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "defaultValue": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        }
+                    }
+                },
+                "methods": {
+                    "type": "nested",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "analyzer": "analyzer_keyword"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "summary": {
+                            "type": "string"
+                        },
+                        "definingClass": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "visibility": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "static": {
+                            "type": "boolean"
+                        },
+                        "final": {
+                            "type": "boolean"
+                        },
+                        "abstract": {
+                            "type": "boolean"
+                        },
+                        "returnType": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "returnByRef": {
+                            "type": "boolean"
+                        },
+                        "internal": {
+                            "type": "boolean"
+                        },
+                        "file": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "startLine": {
+                            "type": "integer"
+                        },
+                        "endLine": {
+                            "type": "integer"
+                        },
+                        "parameters": {
+                            "type": "nested",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                                },
+                                "description": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                                },
+                                "defaultValue": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                                },
+                                "variadic": {
+                                    "type": "boolean"
+                                },
+                                "byRef": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "function": {
+            "_all": {
+                "enabled": false
+            },
+            "properties": {
+                "packageVendor": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "packageName": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "packageVersion": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "name": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "namespace": {
+                    "type": "string",
+                    "analyzer": "analyzer_keyword"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                },
+                "startLine": {
+                    "type": "integer"
+                },
+                "endLine": {
+                    "type": "integer"
+                },
+                "parameters": {
+                    "type": "nested",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "defaultValue": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "variadic": {
+                            "type": "boolean"
+                        },
+                        "byRef": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

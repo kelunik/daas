@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{% block title %}{% endblock %}</title>
+
+        <meta charset="utf-8">
+
+        <link rel="stylesheet" href="/css/highlight.css" media="all">
+        <link rel="stylesheet" href="/css/screen.css" media="screen">
+
+        <script src="/js/highlight.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
+    </head>
+
+    <body>
+        {% block content %}{% endblock %}
+    </body>
+</html>

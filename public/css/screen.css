@@ -1,0 +1,21 @@
+body { margin: 50px; font-family: monospace; max-width: 800px; }
+
+a { color: #2795ee; text-decoration: none; }
+a:hover { color: #2795ee; text-decoration: underline; }
+
+dt { margin-top: 15px; margin-bottom: 5px; padding-left: 80px; text-indent: -80px; }
+dd { margin-bottom: 15px; }
+
+.signature { color: #444; font-size: 13px; }
+
+.type-separator { color: #777; }
+
+.parameters { width: 100%; border-collapse: collapse; margin: 20px 0; }
+.parameters th, .parameters td { padding: 8px 10px; border: 1px solid #ddd; }
+.parameters td { vertical-align: top; }
+
+[id^="constant_"]:target,
+[id^="property_"]:target,
+[id^="method_"]:target {
+    background-color: #ff9;
+}

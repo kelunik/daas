@@ -1,0 +1,13 @@
+{% extends "layout/reference.twig" %}
+
+{% block title %}Reference Overview{% endblock %}
+
+{% block content %}
+    <h1>Available Packages</h1>
+
+    <ul>
+        {% for package in data.packages %}
+            <li><a href="/{{ package.vendor|e('url') }}/{{ package.name|e('url') }}">{{ package.vendor }} / {{ package.name }}</a></li>
+        {% endfor %}
+    </ul>
+{% endblock %}
