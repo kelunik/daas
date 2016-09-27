@@ -21,7 +21,7 @@ class ElasticClient {
             ->setUri($this->baseUri . "/" . urlencode($index) . "/" . urlencode($type) . "/" . urlencode($id))
             ->setBody($source);
 
-        return \Amp\pipe($this->httpClient->request($request), function(Response $response) {
+        return \Amp\pipe($this->httpClient->request($request), function (Response $response) {
             $statusClass = (int) ($response->getStatus() / 100);
 
             if ($statusClass !== 2) {#
@@ -49,7 +49,7 @@ class ElasticClient {
             ->setMethod("GET")
             ->setUri($this->baseUri . "/" . urlencode($index) . "/" . urlencode($type) . "/" . urlencode($id) . "?" . http_build_query($query));
 
-        return \Amp\pipe($this->httpClient->request($request), function(Response $response) {
+        return \Amp\pipe($this->httpClient->request($request), function (Response $response) {
             $statusClass = (int) ($response->getStatus() / 100);
 
             if ($statusClass !== 2) {
@@ -88,7 +88,7 @@ class ElasticClient {
                 "query" => $search,
             ]));
 
-        return \Amp\pipe($this->httpClient->request($request), function(Response $response) {
+        return \Amp\pipe($this->httpClient->request($request), function (Response $response) {
             $statusClass = (int) ($response->getStatus() / 100);
 
             if ($statusClass !== 2) {

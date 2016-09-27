@@ -199,26 +199,40 @@ Amp\run(function () use ($argv) {
 
     $logger->debug("Starting to insert into persistence.");
 
-    /** @var Response $response */
-    $response = yield $httpClient->request(
-        (new Request)
-            ->setUri(getenv("APP_ELASTICSEARCH") . "/reference")
-            ->setMethod("HEAD")
-    );
+    $attempt = 1;
 
-    if ($response->getStatus() === 400) {
-        $logger->info("Index 'reference' does not exist, creating it.");
-
+    while (true) {
         /** @var Response $response */
         $response = yield $httpClient->request(
             (new Request)
-                ->setUri("")
-                ->setMethod("PUT")
-                ->setBody(file_get_contents(__DIR__ . "/../res/elasticsearch/index/reference.json"))
+                ->setUri(getenv("APP_ELASTICSEARCH") . "/reference")
+                ->setMethod("HEAD")
         );
 
-        if ($response->getStatus() !== 201) {
+        if ($response->getStatus() === 200) {
+            break;
+        }
+
+        if ($attempt === 2) {
             throw new \Exception("Index could not be created.");
+        }
+
+        if ($response->getStatus() === 404) {
+            $logger->info("Index 'reference' does not exist, creating it.");
+
+            /** @var Response $response */
+            $response = yield $httpClient->request(
+                (new Request)
+                    ->setUri(getenv("APP_ELASTICSEARCH") . "/reference")
+                    ->setMethod("PUT")
+                    ->setBody(file_get_contents(__DIR__ . "/../res/elasticsearch/index/reference.json"))
+            );
+
+            if ($response->getStatus() !== 201) {
+                $attempt++;
+            }
+        } else {
+            throw new \Exception("Unknown index error: " . $response->getBody());
         }
     }
 
