@@ -25,8 +25,10 @@ use function Kelunik\DaaS\databaseUriToConnStr;
 
 $dotenv = new Dotenv(__DIR__ . "/..");
 $dotenv->load();
-$dotenv->required("APP_DATABASE");
-$dotenv->required("APP_ELASTICSEARCH");
+$dotenv->required("APP_HOST")->notEmpty();
+$dotenv->required("APP_PORT")->isInteger();
+$dotenv->required("APP_DATABASE")->notEmpty();
+$dotenv->required("APP_ELASTICSEARCH")->notEmpty();
 
 $injector = new Injector;
 
@@ -74,6 +76,6 @@ $router = router()
     ->route("GET", "/{vendor}/{package}/{version}/functions/{fqn:.+}", $injector->make(FunctionReference::class));
 
 (new Host)
-    ->expose("*", 4000)
+    ->expose(getenv("APP_HOST"), (int) getenv("APP_PORT"))
     ->use(\Aerys\root(ROOT . "/public"))
     ->use($router);
