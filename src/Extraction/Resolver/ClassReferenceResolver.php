@@ -2,21 +2,21 @@
 
 namespace Kelunik\DaaS\Extraction\Resolver;
 
-use function Kelunik\DaaS\createClassDocFromReflection;
 use Kelunik\DaaS\Extraction\Docs\ClassDoc;
 use Kelunik\DaaS\Extraction\Storage\ClassStorage;
 use Kelunik\DaaS\Extraction\Storage\StorageException;
 use Psr\Log\LoggerInterface as PsrLogger;
 use ReflectionClass;
+use function Kelunik\DaaS\createClassDocFromReflection;
 
 abstract class ClassReferenceResolver {
     private $logger;
     private $classStorage;
-    private $docProperty;
+    private $docProperties;
 
-    protected function __construct(PsrLogger $logger, ClassStorage $classStorage, string $docProperty) {
+    protected function __construct(PsrLogger $logger, ClassStorage $classStorage, array $docProperties) {
         $this->classStorage = $classStorage;
-        $this->docProperty = $docProperty;
+        $this->docProperties = $docProperties;
         $this->logger = $logger;
     }
 
@@ -27,10 +27,12 @@ abstract class ClassReferenceResolver {
 
     public function resolve(string $fqn) {
         $classDoc = $this->classStorage->load($fqn);
-        $property = $this->docProperty;
+        $properties = $this->docProperties;
 
         $finishedList = [$fqn => $classDoc];
-        $pendingList = $classDoc->$property;
+        $pendingList = array_merge(...array_map(function ($property) use ($classDoc) {
+            return $classDoc->$property;
+        }, $properties));
 
         while ($pendingList) {
             $parent = array_shift($pendingList);
@@ -52,8 +54,10 @@ abstract class ClassReferenceResolver {
                 }
             }
 
-            $pendingList = array_merge($pendingList, $parentClassDoc->$property);
             $finishedList[$parent] = $parentClassDoc;
+            $pendingList = array_merge($pendingList, ...array_map(function ($property) use ($parentClassDoc) {
+                return $parentClassDoc->$property;
+            }, $properties));
 
             $this->resolveReference($classDoc, $parentClassDoc);
         }

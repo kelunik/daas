@@ -7,6 +7,6 @@ use Psr\Log\LoggerInterface as PsrLogger;
 
 class ParentResolver extends ClassReferenceResolver {
     public function __construct(PsrLogger $logger, ClassStorage $classStorage) {
-        parent::__construct($logger, $classStorage, "parents");
+        parent::__construct($logger, $classStorage, ["parents", "interfaces"]);
     }
 }

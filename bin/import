@@ -187,12 +187,6 @@ Amp\run(function () use ($argv) {
         $parentResolver->resolve($class);
     }
 
-    $interfaceResolver = new InterfaceResolver(new NullLogger, $classStorage);
-
-    foreach ($result->getClassList() as $class) {
-        $interfaceResolver->resolve($class);
-    }
-
     $elasticClient = new ElasticClient($httpClient, getenv("APP_ELASTICSEARCH"));
     $classRepository = new ClassRepository($elasticClient);
     $functionRepository = new FunctionRepository($elasticClient);
