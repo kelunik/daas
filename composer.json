@@ -1,6 +1,7 @@
 {
     "name": "kelunik/daas",
     "description": "Documentation as a Service.",
+    "license": "MIT",
     "type": "project",
     "authors": [
         {
