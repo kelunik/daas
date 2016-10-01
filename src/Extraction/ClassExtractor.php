@@ -227,7 +227,7 @@ class ClassExtractor implements NodeVisitor {
             $method->addParameter($param);
         }
 
-        $method->setInternal($docBlock->hasTag("internal"));
+        $method->setInternal($docBlock->hasTag("internal") || !strncmp($method->name, '__', 2));
         $method->setSummary($docBlock->getSummary());
         $method->setDescription($docBlock->getDescription()->render());
 
