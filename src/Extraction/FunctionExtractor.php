@@ -51,7 +51,7 @@ class FunctionExtractor implements NodeVisitor {
             $function->setEndLine($node->getAttribute("endLine"));
 
             $docBlock = $this->createDocBlockFromComment($node->getDocComment(), $function->namespace);
-            $function->setInternal($docBlock->hasTag("internal"));
+            $function->setInternal($docBlock->hasTag("internal") || preg_match('/^_(?!_)/', $function->name));
 
             $paramTags = [];
 
